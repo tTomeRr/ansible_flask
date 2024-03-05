@@ -1,0 +1,147 @@
+- name: Install Docker and Kind
+  hosts: hosts
+  become: yes
+  tasks:
+    - name: Update and upgrade all packages
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+
+    - name: Install required packages
+      ansible.builtin.dnf:
+        name:
+          - curl
+          - ca-certificates
+          - gnupg2
+
+    - name: Create directory for Docker's GPG key
+      ansible.builtin.file:
+        path: /etc/pki/rpm-gpg
+        state: directory
+        mode: '0755'
+
+    - name: Add Docker's official GPG key
+      ansible.builtin.rpm_key:
+        state: present
+        key: https://download.docker.com/linux/centos/gpg
+
+    - name: Add Docker repository
+      ansible.builtin.yum_repository:
+        name: Docker
+        description: Docker Repository
+        baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
+        gpgcheck: yes
+        gpgkey: file:///etc/pki/rpm-gpg/docker.gpg
+        enabled: yes
+
+    - name: Install Docker and related packages
+      ansible.builtin.dnf:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - docker-compose
+
+    - name: Add Docker group
+      ansible.builtin.group:
+        name: docker
+        state: present
+
+    - name: Add user to Docker group
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Enable and start Docker services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - docker.service
+        - containerd.service
+
+    - name: Get latest kubectl version
+      uri:
+        url: https://dl.k8s.io/release/stable.txt
+        return_content: yes
+      register: version
+
+    - name: Download the latest kubectl release
+      uri:
+        url: https://dl.k8s.io/release/{{ version.content }}/bin/linux/arm/kubectl
+        dest: /home/{{ ansible_user }}
+      register: kubectl
+
+    - name: Download the kubectl checksum file
+      uri:
+        url: https://dl.k8s.io/{{ version.content }}/bin/linux/arm/kubectl.sha256
+        dest: /home/{{ ansible_user }}
+
+    - name: Validate the kubectl binary against the checksum file
+      shell: echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+      register: result
+
+    - name: Assert that the kubectl binary is OK
+      vars:
+        expected: "kubectl: OK"
+      assert:
+        that:
+          - result.stdout == expected
+        fail_msg: "{{ result.stdout }}"
+        success_msg: "{{ result.stdout }}"
+
+    - name: Download kind
+      ansible.builtin.shell: |
+        curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+        chmod +x ./kind
+        mv ./kind /usr/local/bin/kind
+
+    - name: Check If Docker Is Installed
+      command: docker --version
+      register: docker_valid
+      ignore_errors: yes
+
+    - name: Fail if Docker is not installed
+      fail:
+        msg: "Docker couldn't be installed. Please try installing again."
+      when: docker_valid is failed
+
+    - name: Debug Docker installation
+      debug:
+        msg: "Docker is successfully installed"
+      when: docker_valid is succeeded
+
+    - name: Check If Kubectl Is Installed
+      command: kubectl version --client
+      register: kubectl_valid
+      ignore_errors: yes
+
+    - name: Fail if Kubectl is not installed
+      fail:
+        msg: "Kubectl couldn't be installed. Please try installing again."
+      when: kubectl_valid is failed
+
+    - name: Debug Kubectl installation
+      debug:
+        msg: "Kubectl is successfully installed"
+      when: kubectl_valid is succeeded
+
+    - name: Check If Kind Is Installed
+      command: kind --version
+      register: kind_valid
+      ignore_errors: yes
+
+    - name: Fail if Kind is not installed
+      fail:
+        msg: "Kind couldn't be installed. Please try installing again."
+      when: kind_valid is failed
+
+    - name: Debug Kind installation
+      debug:
+        msg: "Kind is successfully installed"
+      when: kind_valid is succeeded
+
