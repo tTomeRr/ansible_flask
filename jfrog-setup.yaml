@@ -1,0 +1,46 @@
+- name: 
+  hosts: hosts
+  become: yes
+  tasks:
+    
+    - name: Check if namespace exists
+      command: kubectl get namespaces
+      register: kubectl_namespace
+
+    - name: Create namespace artifactory if it does not exists
+      command: kubectl create namespace artifactory
+      when: "'artifactory' not in kubectl_namespace.stdout"
+   
+    - name: Installing Local Path Provisioner
+      shell: |
+        wget -O /tmp/local-path-storage.yaml https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
+        kubectl apply -f /tmp/local-path-storage.yaml
+        # if it does not work, add sleep here? or move it to another step
+        kubectl patch storageclass local-path -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}'
+      args:
+        executable: /bin/bash
+      
+    - name: Copy PostgreSQL configuration file
+      copy:
+        src: ./jfrog/postgresql.yaml
+        dest: /tmp/postgresql.yaml
+
+    - name: Copy PostgreSQL Service configuration file
+      copy:
+        src: ./jfrog/posgresql-service.yaml
+        dest: /tmp/postgresql-service.yaml
+
+    - name: Copy Jfrog Deployment configuration file
+      copy:
+        src: ./jfrog/jfrog.yaml
+        dest: /tmp/jfrog.yaml
+
+    - name: Copy PVC configuration file
+      copy:
+        src: ./jfrog/pvc.yaml
+        dest: /tmp/pvc.yaml 
+
+    - name: Copy Jfrog Service configuration file
+      copy:
+        src: ./jfrog/jfrog-service.yaml
+        dest: /tmp/jfrog-service.yaml 

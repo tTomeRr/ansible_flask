@@ -103,7 +103,6 @@
     - name: Check If Docker Is Installed
       command: docker --version
       register: docker_valid
-      ignore_errors: yes
 
     - name: Fail if Docker is not installed
       fail:
@@ -118,7 +117,6 @@
     - name: Check If Kubectl Is Installed
       command: kubectl version --client
       register: kubectl_valid
-      ignore_errors: yes
 
     - name: Fail if Kubectl is not installed
       fail:
@@ -133,7 +131,6 @@
     - name: Check If Kind Is Installed
       command: kind --version
       register: kind_valid
-      ignore_errors: yes
 
     - name: Fail if Kind is not installed
       fail:
@@ -144,4 +141,18 @@
       debug:
         msg: "Kind is successfully installed"
       when: kind_valid is succeeded
+
+    - name: Copy Kind configuration file
+      copy:
+        src: ./jfrog/jfrog-cluster.yaml
+        dest: /tmp/jfrog-cluster.yaml        
+
+    - name: Check if Kind cluster exists
+      command: kind get clusters
+      register: kind_clusters
+      changed_when: false
+
+    - name: Create a Kind Cluster if it doesn't exist
+      command: kind create cluster --config /tmp/jfrog-cluster.yaml --name jfrog-cluster
+      when: "'jfrog-cluster' not in kind_clusters.stdout"
 
