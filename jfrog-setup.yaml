@@ -27,7 +27,7 @@
 
     - name: Copy PostgreSQL Service configuration file
       copy:
-        src: ./jfrog/posgresql-service.yaml
+        src: ./jfrog/postgresql-service.yaml
         dest: /tmp/postgresql-service.yaml
 
     - name: Copy Jfrog Deployment configuration file
@@ -44,3 +44,13 @@
       copy:
         src: ./jfrog/jfrog-service.yaml
         dest: /tmp/jfrog-service.yaml 
+
+    - name: Apply Needed YAML files
+      shell: |
+        kubectl apply -f /tmp/postgresql.yaml
+        kubectl apply -f /tmp/postgresql-service.yaml
+        kubectl apply -f /tmp/jfrog.yaml
+        kubectl apply -f /tmp/pvc.yaml
+        kubectl apply -f /tmp/jfrog-service.yaml
+      args:
+        executable: /bin/bash

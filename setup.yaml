@@ -156,3 +156,14 @@
       command: kind create cluster --config /tmp/jfrog-cluster.yaml --name jfrog-cluster
       when: "'jfrog-cluster' not in kind_clusters.stdout"
 
+    - name: Install helm if not exists
+      unarchive:
+        src: https://get.helm.sh/helm-v3.11.0-linux-amd64.tar.gz
+        dest: /usr/local/bin
+        extra_opts: "--strip-components=1"
+        owner: root
+        group: root
+        mode: 0755
+        remote_src: true
+      args:
+        creates: /usr/local/bin/helm
