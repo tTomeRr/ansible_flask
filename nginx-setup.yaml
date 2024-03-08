@@ -1,3 +1,4 @@
+
 - name: Deploy Nginx Ingress Controller with MetalLB 
   hosts: hosts
   tasks:
@@ -15,7 +16,7 @@
 
     - name: Create MetalLB IPAddressPool YAML file
       copy:
-        dest: /tmp/metallb_ip_pool.yml
+        dest: /tmp/ip-pool.yaml
         content: |
           apiVersion: metallb.io/v1beta1
           kind: IPAddressPool
