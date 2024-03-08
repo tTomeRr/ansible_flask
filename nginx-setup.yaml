@@ -25,7 +25,7 @@
             namespace: metallb-system
           spec:
             addresses:
-            - {{ ip_range.stdout }}
+              - "{{ ip_range.stdout }}"
       
     - name: Copy metallb.yaml
       copy:
@@ -103,11 +103,35 @@
       command: kubectl get svc nginx-ingress-controller -o=jsonpath='{.status.loadBalancer.ingress[0].ip}'
       register: ingress_ip_address
 
-    - name: Add the URL entry to /etc/hosts
+    - name: Add the jfrog URL entry to /etc/hosts
       ansible.builtin.lineinfile:
         path: /etc/hosts
         line: "{{ ingress_ip_address.stdout }} tomer-jfrog.octopus.lab"
         state: present
         create: yes
         regexp: '^{{ ingress_ip_address.stdout }}\s+tomer-jfrog\.octopus\.lab'
+
+    - name: Copy flask-deployment.yaml
+      copy:
+        src: ./nginx/flask-deployment.yaml
+        dest: /tmp/flask-deployment.yaml
+    
+    - name: Apply flask-deployment.yaml
+      shell:
+        kubectl apply -f /tmp/flask-deployment.yaml
+      args:
+        executable: /bin/bash
+
+    - name: Add the flask URL entry to /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "{{ ingress_ip_address.stdout }} tomer-flask.octopus.lab"
+        state: present
+        create: yes
+        regexp: '^{{ ingress_ip_address.stdout }}\s+tomer-flask\.octopus\.lab'
+
+
+
+
+
 
