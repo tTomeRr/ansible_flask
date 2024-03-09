@@ -1,0 +1,166 @@
+- name: Update and upgrade all packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+
+- name: Install required packages
+  ansible.builtin.dnf:
+    name:
+      - curl
+      - ca-certificates
+      - gnupg2
+
+- name: Create directory for Docker's GPG key
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add Docker's official GPG key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/centos/gpg
+    keyring: /etc/apt/keyrings/docker.gpg
+    state: present
+
+- name: Add Docker repository
+  ansible.builtin.yum_repository:
+    name: Docker
+    description: Docker Repository
+    baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
+    gpgcheck: yes
+    gpgkey: file:///etc/pki/rpm-gpg/docker.gpg
+    enabled: yes
+
+- name: Install Docker and related packages
+  ansible.builtin.dnf:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose
+    state: present
+
+- name: Add Docker group
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Add user to Docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true
+
+- name: Enable and start Docker services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - docker.service
+    - containerd.service
+
+- name: Get latest kubectl version
+  uri:
+    url: https://dl.k8s.io/release/stable.txt
+    return_content: yes
+  register: version
+
+- name: Download the latest kubectl release
+  uri:
+    url: https://dl.k8s.io/release/{{ version.content }}/bin/linux/arm/kubectl
+    dest: /home/{{ ansible_user }}
+  register: kubectl
+
+- name: Download the kubectl checksum file
+  uri:
+    url: https://dl.k8s.io/{{ version.content }}/bin/linux/arm/kubectl.sha256
+    dest: /home/{{ ansible_user }}
+
+- name: Validate the kubectl binary against the checksum file
+  shell: echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+  register: result
+
+- name: Assert that the kubectl binary is OK
+  vars:
+    expected: "kubectl: OK"
+  assert:
+    that:
+      - result.stdout == expected
+    fail_msg: "{{ result.stdout }}"
+    success_msg: "{{ result.stdout }}"
+
+- name: Download kind
+  ansible.builtin.shell: |
+    curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+    chmod +x ./kind
+    mv ./kind /usr/local/bin/kind
+
+- name: Check If Docker Is Installed
+  command: docker --version
+  register: docker_valid
+
+- name: Fail if Docker is not installed
+  fail:
+    msg: "Docker couldn't be installed. Please try installing again."
+  when: docker_valid is failed
+
+- name: Debug Docker installation
+  debug:
+    msg: "Docker is successfully installed"
+  when: docker_valid is succeeded
+
+- name: Check If Kubectl Is Installed
+  command: kubectl version --client
+  register: kubectl_valid
+
+- name: Fail if Kubectl is not installed
+  fail:
+    msg: "Kubectl couldn't be installed. Please try installing again."
+  when: kubectl_valid is failed
+
+- name: Debug Kubectl installation
+  debug:
+    msg: "Kubectl is successfully installed"
+  when: kubectl_valid is succeeded
+
+- name: Check If Kind Is Installed
+  command: kind --version
+  register: kind_valid
+
+- name: Fail if Kind is not installed
+  fail:
+    msg: "Kind couldn't be installed. Please try installing again."
+  when: kind_valid is failed
+
+- name: Debug Kind installation
+  debug:
+    msg: "Kind is successfully installed"
+  when: kind_valid is succeeded
+
+- name: Copy Kind configuration file
+  copy:
+    src: ./jfrog/jfrog-cluster.yaml
+    dest: /tmp/jfrog-cluster.yaml
+
+- name: Check if Kind cluster exists
+  command: kind get clusters
+  register: kind_clusters
+  changed_when: false
+
+- name: Create a Kind Cluster if it doesn't exist
+  command: kind create cluster --config /tmp/jfrog-cluster.yaml --name jfrog-cluster
+  when: "'jfrog-cluster' not in kind_clusters.stdout"
+
+- name: Install helm if not exists
+  unarchive:
+    src: https://get.helm.sh/helm-v3.13.1-linux-amd64.tar.gz
+    dest: /usr/local/bin
+    extra_opts: "--strip-components=1"
+    owner: root
+    group: root
+    mode: 0755
+    remote_src: true
+  args:
+      creates: /usr/local/bin/helm
+

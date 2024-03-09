@@ -1,0 +1,5 @@
+- name: Run Full Deployment
+  hosts: all
+  roles:
+    - full_deployment
+

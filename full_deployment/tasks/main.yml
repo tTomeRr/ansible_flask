@@ -1,0 +1,5 @@
+---
+# tasks file for full_deployment
+- import_tasks: setup.yaml
+- import_tasks: jfrog-setup.yaml
+- import_tasks: nginx-setup.yaml
