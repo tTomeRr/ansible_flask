@@ -21,7 +21,7 @@ spec:
         app: helloapi-app
     spec:
       containers:
-      - image: ttomerr/helloapi:1
+      - image: helloapi:1
         name: helloapi-app
         ports:
         - containerPort: 5000

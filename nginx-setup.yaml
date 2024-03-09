@@ -45,6 +45,18 @@
         state: present
         src: /tmp/metallb.yaml
 
+    - name: Get MetalLB pod names
+      shell: kubectl get pods -n metallb-system -o jsonpath="{.items[*].metadata.name}"
+      register: metallb_pods
+
+    - name: Convert pod names to a list
+      set_fact:
+        pod_list: "{{ metallb_pods.stdout.split() }}"
+
+    - name: Wait for each MetalLB pod to be ready
+      shell: kubectl wait --for=condition=Ready pod/{{ item }} -n metallb-system --timeout=1h
+      loop: "{{ pod_list }}"
+
     - name: Apply IPAddressPool YAML file
       kubernetes.core.k8s:
         state: present

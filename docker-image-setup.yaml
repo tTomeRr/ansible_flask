@@ -1,0 +1,6 @@
+- name: Download Docker image from artifactory
+  hosts: hosts
+  become: yes
+  tasks:
+    
+
