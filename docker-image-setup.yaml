@@ -2,5 +2,24 @@
   hosts: hosts
   become: yes
   tasks:
-    
 
+    - name: Read artifactory password
+      shell: ansible-vault view vault.txt --vault-password-file=ansible-vault-password.txt
+      register: vault_output
+      delegate_to: localhost
+      become: no
+
+    - name: Copy get_docker_image.sh
+      copy:
+        src: ./docker/get_docker_image.sh
+        dest: /tmp/get_docker_image.sh
+
+    - name: Download the Docker image from artifactory
+      shell: |
+        chmod a+x /tmp/get_docker_image.sh
+        /tmp/get_docker_image.sh "{{ vault_output.stdout }}"
+      register: script_output
+
+    - name: Print script output
+      debug:
+        msg: "{{ script_output.stdout }}"
